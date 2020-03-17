@@ -30,7 +30,7 @@
 #include <Tiny4kOLED.h>
 
 #define SCREEN_WIDTH 16
-#define SCREEN_HEIGHT 48
+#define SCREEN_HEIGHT 24
 
 #define PIN_LEFT PB1
 #define PIN_RIGHT PB4
@@ -104,7 +104,7 @@ uint8_t pixels[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
 bool madeLine = false;
 
 
-activePiece active = { SCREEN_WIDTH / 2 + 2, 0, 0, 1 };
+activePiece active = { 4, 0, 0, 1 };
 
 unsigned long elapsed = 0;
 unsigned long ms = 0;
@@ -136,7 +136,7 @@ void setup() {
   for (int y = 0; y < SCREEN_HEIGHT; y++) {
     for (int x = 0; x < SCREEN_WIDTH; x++) {
       int pos = y * SCREEN_WIDTH + x;
-      if (x == 0 || x == SCREEN_WIDTH - 1 || y == SCREEN_HEIGHT - 1) {
+      if (x == 0 || x == 11 || y == SCREEN_HEIGHT - 1) {
         pixels[pos / 8] |= 1 << (pos % 8);
       }
     }
@@ -182,11 +182,20 @@ void draw() {
   uint8_t page = 0;
   
   for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
+    if (y == SCREEN_HEIGHT - 1) {
+      for (uint8_t p = 0; p < 4; p++) {
+        page_pixels[y][p] = 0xff;
+      }
+      continue;
+    }
     for (uint8_t p = 0; p < 4; p++) {
       page_pixels[y][p] = 0;
     }
 
-    for (uint8_t x = 0; x < SCREEN_WIDTH; x++) {
+    page_pixels[y][0] = 1;
+    page_pixels[y][3] = 0x80;
+    
+    for (uint8_t x = 1; x < 11; x++) {
       int pos = y * SCREEN_WIDTH + x;
       bool piecePixel = false;
       bool hasPiece = x >= active.x && y >= active.y && x < active.x + 4 && y < active.y + 4;
@@ -195,33 +204,22 @@ void draw() {
         piecePixel = active.piece[ind] & 1;
       }
       if (((pixels[pos / 8] >> (pos % 8)) & 1) || piecePixel) {
-        // This is the page to place this pixel in
-        uint8_t p = x / 4;
-        uint8_t val = ((x * 2) % 8);
-        uint8_t val2 = val + 1;
-        page_pixels[y][p] |= (1 << val);
-        
-        if (val >= 7) {
-          p += 1;
-          val2 = 0;
+        uint8_t pix = x * 3 - 2;
+
+        for (uint8_t k = 0; k < 3; k++) {
+          uint8_t p = (pix + k) / 8;
+          page_pixels[y][p] |= (1 << ((pix + k) % 8));
         }
-        
-        page_pixels[y][p] |= (1 << val2);
       }
     }
 
   }
   for (uint8_t p = 0; p < 4; p++) {
-    uint8_t realpage = p;
-    
-    oled.setCursor(0, realpage);
+    oled.setCursor(0, p);
     oled.startData();
 
     for (uint8_t y = 0; y < SCREEN_HEIGHT; y++) {
-      //Double on y axis
-      //oled.sendData(page_pixels[y][p]);
-      oled.repeatData(page_pixels[y][p], 2);
-      //oled.sendData(page_pixels[y][p]);
+      oled.repeatData(page_pixels[y][p], 3);
     }
 
     oled.endData();
@@ -230,7 +228,7 @@ void draw() {
 
 void writeScore() {
     for (int l = 0; l < 4; l++) {
-        oled.setCursor(SCREEN_HEIGHT * 2 + 10, l);
+        oled.setCursor(SCREEN_HEIGHT * 3 + 10, l);
         oled.startData();
         int divisor = 1;
         if (l == 1) {
@@ -399,7 +397,7 @@ void loop() {
       if (npiece == 7 || npiece == active.id) {
         npiece = random(7);
       }
-      active = { SCREEN_WIDTH / 2 + 2, 0, 0, npiece };
+      active = { 4, 0, 0, npiece };
       uint8_t p[16];
       readPiece(p, npiece);
       active.piece = p;
